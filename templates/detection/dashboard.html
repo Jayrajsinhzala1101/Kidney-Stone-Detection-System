@@ -1,0 +1,153 @@
+{% extends 'detection/base.html' %}
+
+{% block title %}Dashboard - KidneyStoneAI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Hero Section -->
+    <div class="hero-section text-center mb-5">
+        <div class="container">
+            <h1 class="display-4 fw-bold mb-3">Welcome, {{ user.username }}!</h1>
+            <p class="lead">View your kidney stone detection history and statistics</p>
+            <a href="{% url 'detect_page' %}" class="btn btn-light btn-lg">
+                <i class="fas fa-camera me-2"></i>Detect Now
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-5">
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h4>Total Detections</h4>
+                <p class="text-muted" id="totalDetections">Loading...</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-heartbeat"></i>
+                </div>
+                <h4>No Stone Detected</h4>
+                <p class="text-muted" id="healthyPlants">Loading...</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h4>Stone Detected</h4>
+                <p class="text-muted" id="diseasesFound">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Detections -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-transparent">
+                    <h4 class="mb-0">
+                        <i class="fas fa-history me-2"></i>Recent Detections
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div id="detectionHistory">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                            <p class="mt-2 text-muted">Loading detection history...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load detection history and statistics
+function loadDashboardData() {
+    fetch('/api/history/', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+        .then(data => {
+        const history = data.history;
+        const historyContainer = document.getElementById('detectionHistory');
+        
+        // Update statistics
+        document.getElementById('totalDetections').textContent = history.length;
+        
+        const noStoneCount = history.filter(item => item.has_stone === false).length;
+        const stoneCount = history.length - noStoneCount;
+        
+        document.getElementById('healthyPlants').textContent = noStoneCount;
+        document.getElementById('diseasesFound').textContent = stoneCount;
+        
+        // Display history
+        if (history.length === 0) {
+            historyContainer.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-camera fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No detections yet</h5>
+                    <p class="text-muted">Start by analyzing a scan image</p>
+                    <a href="{% url 'detect_page' %}" class="btn btn-primary">
+                        <i class="fas fa-camera me-2"></i>Detect Now
+                    </a>
+                </div>
+            `;
+        } else {
+            let historyHTML = '';
+            history.forEach(item => {
+                const confidencePercent = (item.confidence * 100).toFixed(1);
+                const statusClass = item.has_stone === false ? 'success' : 'warning';
+                const statusIcon = item.has_stone === false ? 'check-circle' : 'exclamation-triangle';
+                
+                historyHTML += `
+                    <div class="history-item">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-${statusIcon} text-${statusClass} me-2"></i>
+                                    ${item.label || 'Unknown'}
+                                </h6>
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-calendar me-1"></i>${item.created_at}
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <span class="badge bg-${statusClass} fs-6">
+                                    ${confidencePercent}% Confidence
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            historyContainer.innerHTML = historyHTML;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading dashboard data:', error);
+        document.getElementById('detectionHistory').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Error loading detection history. Please try again.
+            </div>
+        `;
+    });
+}
+
+// Load data when page loads
+document.addEventListener('DOMContentLoaded', loadDashboardData);
+</script>
+{% endblock %} 
