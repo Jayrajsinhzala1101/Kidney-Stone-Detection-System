@@ -14,8 +14,8 @@ import Loading from './components/Loading';
 // Context
 import { AuthProvider, useAuth } from './context/AuthContext';
 
-// Configure axios: relative URLs so dev proxy (package.json proxy → backend) is used
-axios.defaults.baseURL = '';
+// Configure axios: use REACT_APP_API_URL for production or relative URLs for dev proxy
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || '';
 axios.defaults.withCredentials = true;
 
 function AppRoutes() {

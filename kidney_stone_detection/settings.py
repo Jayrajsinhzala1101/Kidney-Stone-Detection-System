@@ -6,6 +6,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,9 +18,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-your-secret-key-here-change-in-production'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*'] # In production, set this to ['.onrender.com', 'localhost', '127.0.0.1']
+
+# Set IS_PRODUCTION based on environment
+IS_PRODUCTION = os.getenv('RENDER') == 'true' or not DEBUG
 
 # Application definition
 INSTALLED_APPS = [
@@ -36,6 +40,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -80,6 +85,10 @@ DATABASES = {
     }
 }
 
+# Override database for production if DATABASE_URL is set
+if os.getenv('DATABASE_URL'):
+    DATABASES['default'] = dj_database_url.config(default=os.getenv('DATABASE_URL'), conn_max_age=600)
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -112,6 +121,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'oaulnlcbnqymollo')
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
@@ -129,6 +140,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3002",
     "http://127.0.0.1:3002",
 ]
+
+# Add frontend URL perfectly (e.g. Vercel)
+FRONTEND_URL = os.getenv('FRONTEND_URL')
+if FRONTEND_URL:
+    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL.rstrip('/'))
+    # Also allow all origins if it's production just to be safe with React
+    CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_METHODS = [
@@ -152,12 +170,13 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # Session settings
-SESSION_COOKIE_SECURE = False
-SESSION_COOKIE_HTTPONLY = False
-SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_DOMAIN = 'localhost'
+SESSION_COOKIE_SECURE = IS_PRODUCTION
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'None' if IS_PRODUCTION else 'Lax'
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+CSRF_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SAMESITE = 'None' if IS_PRODUCTION else 'Lax'
 
 # Kidney Stone Detection API (FastAPI in models/api.py).
 # Run it with: uvicorn models.api:app --reload --port 8001
